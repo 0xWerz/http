@@ -12,12 +12,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build
-        run: make  
+        run: mkdir bin && make
 
       - uses: softprops/action-gh-release@v2  
         if: startsWith(github.ref, 'refs/tags/')
         with:
           tag_name: ${{ github.ref }} 
           name: ${{ github.sha }}  
+          
           files: |
             bin/*
