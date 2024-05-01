@@ -45,16 +45,30 @@ void handle_client(int client_sockfd) {
         return;
     }
 
-    // Parse the request path from the HTTP request.
-    char *path = strtok(buffer, " ");
-    if (path == NULL) {
+    // Parse the request path from the HTTP request and retrieve the path.
+    char *path_start = strchr(buffer, ' ') + 1;
+    char *path_end = strchr(path_start, ' ');
+
+    if (path_end == NULL) {
         perror("Failed to parse request path");
         return;
     }
 
+    size_t path_length = path_end - path_start;
+    char path[path_length];
+
+    // Copy the path and remove the leading forward slash
+    if (path_start[0] == '/') {
+        memcpy(path, path_start + 1, path_length - 1);
+        path[path_length - 1] = '\0';
+    } else {
+        memcpy(path, path_start, path_length);
+        path[path_length] = '\0';
+    }
+
     // Generate an HTTP response based on the request path.
     char response[BUFFER_SIZE];
-    handle_request(buffer, response, sizeof(response));
+    handle_request(path, response, sizeof(response));
 
     // Send the HTTP response to the client.
     ssize_t bytes_written = write(client_sockfd, response, strlen(response));
@@ -64,37 +78,39 @@ void handle_client(int client_sockfd) {
         return;
     }
 
-    printf("Response sent to client:\n%s\n", response);
-
     // Close the client socket.
     close(client_sockfd);
 }
 
 void start_server(const char *server_address, int port) {
     // Create a socket using the socket() system call.
-    printf("Creating socket...\n");
     int sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sockfd < 0) {
         perror("Failed to create socket");
         exit(EXIT_FAILURE);
     }
 
-    // Define the server address and port.
-    printf("Defining server address and port...\n");
+    int reuse_addr = 1;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &reuse_addr, sizeof(reuse_addr)) < 0) {
+        perror("Failed to set socket option");
+        exit(EXIT_FAILURE);
+    }
+
+    load_routes("pages");
+
+    // Defining the server address and port.
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = inet_addr(server_address);
     server_addr.sin_port = htons(port);
 
     // Bind the socket to the server address using the bind() system call.
-    printf("Binding socket to server address...\n");
     if (bind(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
         perror("Failed to bind socket");
         exit(EXIT_FAILURE);
     }
 
     // Listen for incoming connections using the listen() system call.
-    printf("Listening for incoming connections on port %s:%d...\n", server_address, port);
     if (listen(sockfd, 5) < 0) {
         perror("Failed to listen for incoming connections");
         exit(EXIT_FAILURE);
@@ -102,7 +118,6 @@ void start_server(const char *server_address, int port) {
 
     // Accept incoming connections using the accept() system call.
     while (true) {
-        printf("Waiting for incoming connection...\n");
         struct sockaddr_in client_addr;
         socklen_t client_addr_len = sizeof(client_addr);
         int client_sockfd = accept(sockfd, (struct sockaddr *)&client_addr, &client_addr_len);
