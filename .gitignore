@@ -3,6 +3,7 @@
 
 # Build
 bin/*
+!bin/
 
 # Prerequisites
 *.d
