@@ -1,0 +1,23 @@
+name: Build and Release with Binaries
+
+on:
+  push:
+    branches: [ main ]  # Adjust for your release branch
+
+jobs:
+  build_and_release:
+    runs-on: ubuntu-latest  # Adjust for your build environment
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: make  
+
+      - uses: softprops/action-gh-release@v2  
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          tag_name: ${{ github.ref }} 
+          name: ${{ github.sha }}  
+          files: |
+            bin/*
